@@ -1,0 +1,11 @@
+[project]
+name = "controlbot"
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "gymnasium[box2d,classic-control]>=0.29.1",
+    "ipykernel>=6.29.5",
+    "numpy>=2.1.1",
+    "torch>=2.4.1",
+]
