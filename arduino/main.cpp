@@ -1,13 +1,16 @@
-// This program drives the test robot around randomly while collecting
-// training data on an SD card for training an ML model.
+// This program drives the test robot around randomly while collect training
+// data for an ML model onto an SD card.  The final training data file is in
+// commas-separated-values (CSV) format, where each line is like this:
+//
+//   left wheel rotation, right wheel rotation, change in heading
 //
 // The program has four logical components together with a main program that
 // uses those components.  The four components are:
 //
 //   1.  Code to access the compass, which tracks the robot's heading.
-//   2.  Code that uses encoders to track wheel rotation.
+//   2.  Code that uses motor encoders to track wheel rotation.
 //   3.  Code to write training data gathered from the compass and
-//       encoders to the SD card.
+//       motor encoders to the SD card.
 //   4.  An "autodrive" system to drive the robot around randomly.
 //
 // Below, there is one block of code for each of these four components.
@@ -15,11 +18,12 @@
 //
 // Each component has an associated setup function: setupCompass(),
 // setupEncoders(), etc.  All of these setup functions are called during
-// the Arudino's main setup() procedure when the robot starts up.
+// the Arudino's main setup() procedure when the robot starts up.  Beyond
+// that commonality, the four components are rather different.
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Compass
+//  Compass
 //
 // The test robot has a QMC5883L compass that can approximately determine the
 // robot's orientation by measuring the earth's magnetic field.  We'll use a
@@ -59,12 +63,12 @@ float compassHeading() {
   // The atan2f function converts these two field strengths into a direction
   // in radians.  In general atan2f(y, x) is the orientation of a line
   // from the origin to the point (x, y) on a coordinate plane.
-  return atan2f(compass.getY(), compass.getX())
+  return atan2f(compass.getY(), compass.getX());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Encoders
+//  Motor Encoders
 //
 // The two motors on the test robot have "quadrature encoders", sensors that
 // tell is roughly how far the motors (and wheels connected directly to
@@ -119,11 +123,11 @@ volatile int volatile_right_steps = 0;
 // The two functions below update motor positions when an A signal rises
 // based on the value of the B signal.
 void interruptLeft() {
-  volatile_left_steps += 2 * digitalRead(MOTOR_ENC_LEFT_B) - 1;
+  volatile_left_steps += 2 * digitalRead(LEFT_ENCODER_B) - 1;
 }
 
-void interruptRight() {  // why -?
-  volatile_right_steps -= 2 * digitalRead(MOTOR_ENC_RIGHT_B) - 1;
+void interruptRight() {
+  volatile_right_steps -= 2 * digitalRead(RIGHT_ENCODER_B) - 1;
 }
 
 // Tell the Arduino to call one of the functions above when the A signal
@@ -135,7 +139,7 @@ void setupEncoders() {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// SD Card
+//  SD Card
 //
 // As the test robot drives around, we'll write data to an SD card.  Later,
 // we'll move this card from the test robot to a laptop and use that data
@@ -166,7 +170,7 @@ void setupSD() {
 //   left wheel steps, right wheel steps, heading change in radians
 //
 // An example line might be:  8,12,0.071
-void writeSD(int left_change, int right_change, float heading_change)
+void writeSD(int left_change, int right_change, float heading_change) {
   // Set aside 32 bytes of memory to contain the text of the line.
   char buffer[32];
 
@@ -177,8 +181,8 @@ void writeSD(int left_change, int right_change, float heading_change)
 
   // Write the character string to the SD card, following the instructions
   // for the SD card library.
-  sdfile.write((byte *) &buffer, strlen(buffer));
-  sdfile.flush();
+  file.write((byte *) &buffer, strlen(buffer));
+  file.flush();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -268,8 +272,8 @@ void setup() {
   Serial.begin(9600);
 
   // Drive system
-  pinMode(LEFT_SPEED, OUTPUT);
-  pinMode(RIGHT_SPEED, OUTPUT);
+  pinMode(LEFT_DRIVE_PIN, OUTPUT);
+  pinMode(RIGHT_DRIVE_PIN, OUTPUT);
 
   setupCompass();
   setupSD();
@@ -291,18 +295,18 @@ void loop() {
   // If the robot appears to have turned more than 180 degrees in one
   // direction, assume it turned less than 180 in the opposite direction.
   if (heading_change > PI) {
-    heading_chang -= 2 * PI;
+    heading_change -= 2 * PI;
   }
 
   if (heading_change < - PI) {
-    heading_change += 2 * pi;
+    heading_change += 2 * PI;
   }
 
   // Compute the change in left and right wheel steps since the last time
   // through this loop.  Turn off interrupts while reading the current
   // step counts so they can't change while we're reading them.
   noInterrupts();
-  long left_steps = volative_left_steps;
+  long left_steps = volatile_left_steps;
   long right_steps = volatile_right_steps;
   interrupts();
 
@@ -314,7 +318,7 @@ void loop() {
 
   // Store the changes in wheel position and changes in compass heading to
   // the SD card in CSV (comma separated values) format.
-  WriteSD(left_change, right_change, heading_change);
+  writeSD(left_change, right_change, heading_change);
 
   // Update the robot's random driving pattern.
   autodrive();
